@@ -7,7 +7,7 @@
 
 FILE * debugfile;
 
-#define BUF_SIZE 1024
+//#define BUF_SIZE 1024
 
 // Helper private function to find and kill pacman at specific position
 static int find_and_kill_pacman(board_t* board, int new_x, int new_y) {
@@ -370,8 +370,8 @@ int load_ghost(board_t* board) {
     return 0;
 }
 
-int load_level(board_t *board, int points, char *filepath) {
-    int fd = open(filepath, "r");
+int load_level(board_t *board, int points/*, char *filepath*/) {
+    /*int fd = open(filepath, "r");
     if (fd < 0) {
         perror("open");
         return;
@@ -383,7 +383,7 @@ int load_level(board_t *board, int points, char *filepath) {
     while ((bytes = read(fd, buffer, BUF_SIZE)) > 0){
         buffer[bytes] = '\0';
     }
-
+    */
 
 
     board->height = 5;
@@ -418,7 +418,7 @@ int load_level(board_t *board, int points, char *filepath) {
     load_ghost(board);
     load_pacman(board, points);
 
-    close(fd);
+    //close(fd);
 
     return 0;
 }
