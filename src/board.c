@@ -7,7 +7,8 @@
 
 FILE * debugfile;
 
-//#define BUF_SIZE 1024
+#define BUF_SIZE 1024
+#define Line_SIZE 256 * 25
 
 // Helper private function to find and kill pacman at specific position
 static int find_and_kill_pacman(board_t* board, int new_x, int new_y) {
@@ -370,21 +371,7 @@ int load_ghost(board_t* board) {
     return 0;
 }
 
-int load_level(board_t *board, int points/*, char *filepath*/) {
-    /*int fd = open(filepath, "r");
-    if (fd < 0) {
-        perror("open");
-        return;
-    }
-    
-    char buffer[BUF_SIZE + 1];
-    size_t bytes;
-
-    while ((bytes = read(fd, buffer, BUF_SIZE)) > 0){
-        buffer[bytes] = '\0';
-    }
-    */
-
+int load_level(board_t *board, int points, char *filepath) {
 
     board->height = 5;
     board->width = 10;
@@ -392,6 +379,40 @@ int load_level(board_t *board, int points/*, char *filepath*/) {
 
     board->n_ghosts = 2;
     board->n_pacmans = 1;
+
+    int fd = open(filepath, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return;
+    }
+    
+    char linha[Line_SIZE + 1];
+    int line_index = 0;
+
+    char buffer[BUF_SIZE + 1];
+    ssize_t bytes;
+
+    while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
+        for (ssize_t i = 0; i < bytes; i++) {
+            char c = buffer[i];
+            if (c != '\n') 
+                linha[line_index++] = c;
+            else {
+                linha[line_index] = '\0';
+                line_index = 0;
+                if (strncmp(linha, "DIM", 3) == 0)
+                    sscanf(linha, "DIM %d %d", &board->height, &board->width);
+                else if (strncmp(linha, "TEMPO", 5) == 0)
+                    sscanf(linha, "TEMPO %d", &board->tempo);
+                else if (strncmp(linha, "PAC", 3) == 0)
+                    sscanf(linha, "PAC %s", board->pacman_file);
+                else if (strncmp(linha, "MON", 3) == 0) {
+                    sscanf(linha, "MON %s", board->ghosts_files[board->n_ghosts]);
+                    board->n_ghosts += 1;
+                }
+            }
+        }
+    }
 
     board->board = calloc(board->width * board->height, sizeof(board_pos_t));
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
@@ -418,7 +439,7 @@ int load_level(board_t *board, int points/*, char *filepath*/) {
     load_ghost(board);
     load_pacman(board, points);
 
-    //close(fd);
+    close(fd);
 
     return 0;
 }
