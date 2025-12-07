@@ -4,11 +4,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <string.h>
+#include <fcntl.h> 
 
 FILE * debugfile;
 
 #define BUF_SIZE 1024
-#define Line_SIZE 256 * 25
+#define Line_SIZE (256 * 25)
 
 // Helper private function to find and kill pacman at specific position
 static int find_and_kill_pacman(board_t* board, int new_x, int new_y) {
@@ -218,7 +220,7 @@ int move_ghost_charged(board_t* board, int ghost_index, char direction) {
 
     ghost->charged = 0; //uncharge
     int result = move_ghost_charged_direction(board, ghost, direction, &new_x, &new_y);
-    if (result == INVALID_MOVE) {
+    if (result == INVALID_MOVE) {   
         debug("DEFAULT CHARGED MOVE - direction = %c\n", direction);
         return INVALID_MOVE;
     }
@@ -383,7 +385,7 @@ int load_level(board_t *board, int points, char *filepath) {
     int fd = open(filepath, O_RDONLY);
     if (fd < 0) {
         perror("open");
-        return;
+        return -1;
     }
     
     char linha[Line_SIZE + 1];
@@ -392,34 +394,77 @@ int load_level(board_t *board, int points, char *filepath) {
     char buffer[BUF_SIZE + 1];
     ssize_t bytes;
 
+    int row = 0;
+
     while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
         for (ssize_t i = 0; i < bytes; i++) {
             char c = buffer[i];
-            if (c != '\n') 
+
+            if (c != '\n' && c != '\r') 
                 linha[line_index++] = c;
+
             else {
                 linha[line_index] = '\0';
                 line_index = 0;
-                if (strncmp(linha, "DIM", 3) == 0)
+
+                if (linha[0] == '#')
+                    continue;
+
+                else if (strncmp(linha, "DIM", 3) == 0)
                     sscanf(linha, "DIM %d %d", &board->height, &board->width);
+
                 else if (strncmp(linha, "TEMPO", 5) == 0)
                     sscanf(linha, "TEMPO %d", &board->tempo);
+
                 else if (strncmp(linha, "PAC", 3) == 0)
                     sscanf(linha, "PAC %s", board->pacman_file);
+
                 else if (strncmp(linha, "MON", 3) == 0) {
-                    sscanf(linha, "MON %s", board->ghosts_files[board->n_ghosts]);
-                    board->n_ghosts += 1;
+                    char *token = strtok(linha, " ");
+                    token = strtok(NULL, " ");
+                    while (token && board->n_ghosts < MAX_GHOSTS) {
+                        strncpy(board->ghosts_files[board->n_ghosts], token, MAX_FILENAME - 1);
+                        board->ghosts_files[board->n_ghosts][MAX_FILENAME - 1] = '\0';
+                        board->n_ghosts++;
+                        token = strtok(NULL, " ");
+                    }
+                }
+                else {
+                    board->board = calloc(board->width * board->height, sizeof(board_pos_t));
+                    // Board lines
+                    for (int j = 0; j < board->width && linha[j] != '\0'; j++) {
+                        char ch = linha[j];
+
+                        switch (ch) {
+                            case 'X':
+                                board->board[row * board->width + j].content = 'W';
+                                break;
+                            case 'o':
+                                board->board[row * board->width + j].content = ' ';
+                                board->board[row * board->width + j].has_dot = 1;
+                                break;
+                            case '@':
+                                board->board[row * board->width + j].content = ' ';
+                                board->board[row * board->width + j].has_portal = 1;
+                                break;
+                        }
+                    }
+                    row++; 
+                    if (row >= board->height) {
+                        break; 
+                    }
+
                 }
             }
         }
     }
 
-    board->board = calloc(board->width * board->height, sizeof(board_pos_t));
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
 
+    /*
     sprintf(board->level_name, "Static Level");
-
+    
     for (int i = 0; i < board->height; i++) {
         for (int j = 0; j < board->width; j++) {
             if (i == 0 || j == 0 || j == (board->width - 1)) {
@@ -435,10 +480,11 @@ int load_level(board_t *board, int points, char *filepath) {
             }
         }
     }
-
+    */
+    
     load_ghost(board);
     load_pacman(board, points);
-
+    
     close(fd);
 
     return 0;
