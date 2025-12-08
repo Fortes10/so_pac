@@ -338,49 +338,161 @@ void kill_pacman(board_t* board, int pacman_index) {
 }
 
 // Static Loading
-int load_pacman(board_t* board, int points) {
-    board->board[1 * board->width + 1].content = 'P'; // Pacman
-    board->pacmans[0].pos_x = 1;
-    board->pacmans[0].pos_y = 1;
-    board->pacmans[0].alive = 1;
-    board->pacmans[0].points = points;
+int load_pacman(board_t* board, int points, char *filepath) {
+    int fd = open(filepath, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    pacman_t *pac = &board->pacmans[0];
+
+    // estado inicial
+    pac->alive = 1;
+    pac->points = points;
+    pac->current_move = 0;
+    pac->waiting = 0;
+    pac->n_moves = 0;
+    pac->passo = 0;
+
+    char linha[Line_SIZE + 1];
+    char buffer[BUF_SIZE + 1];
+    int line_index = 0;
+    ssize_t bytes;
+
+    while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
+        for (ssize_t i = 0; i < bytes; i++) {
+            char c = buffer[i];
+
+            if (c != '\n') {
+                if (line_index < Line_SIZE)
+                    linha[line_index++] = c;
+            } 
+            
+            else {
+                linha[line_index] = '\0';
+                line_index = 0;
+
+                // Ignorar comentários
+                if (linha[0] == '#')
+                    continue;
+
+                // PASSO N
+                else if (strncmp(linha, "PASSO", 5) == 0)
+                    sscanf(linha, "PASSO %d", pac->passo);
+
+                else if (strncmp(linha, "POS", 3) == 0) {
+                    sscanf(linha, "POS %d %d", pac->pos_y, pac->pos_x) ;
+                    board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
+                }
+
+                else if (linha[0] == 'T') {
+                    // T n -> espera n jogadas
+                    int time = 0;
+                    sscanf(linha, "T %d", &time);
+                    pac->moves[pac->n_moves].command = 'T';
+                    pac->moves[pac->n_moves].turns = time;
+                    pac->moves[pac->n_moves].turns_left = time;
+                } 
+                
+                else {
+                    // comandos simples: A,D,W,S,R,C
+                    pac->moves[pac->n_moves].command = linha[0];
+                    pac->moves[pac->n_moves].turns = 1;
+                    pac->moves[pac->n_moves].turns_left = 1;
+                }
+
+                pac->n_moves++;
+            }
+        }
+    }
+    close(fd);
+
     return 0;
 }
 
 // Static Loading
-int load_ghost(board_t* board) {
-    // Ghost 0
-    board->board[3 * board->width + 1].content = 'M'; // Monster
-    board->ghosts[0].pos_x = 1;
-    board->ghosts[0].pos_y = 3;
-    board->ghosts[0].passo = 0;
-    board->ghosts[0].waiting = 0;
-    board->ghosts[0].current_move = 0;
-    board->ghosts[0].n_moves = 16;
-    
+int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_FILENAME]) {
+    for (int i = 0; i < n_ghosts; i++) {
+        ghost_t *ghost = &board->ghosts[i];
 
-    // Ghost 1
-    board->board[2 * board->width + 4].content = 'M'; // Monster
-    board->ghosts[1].pos_x = 4;
-    board->ghosts[1].pos_y = 2;
-    board->ghosts[1].passo = 1;
-    board->ghosts[1].waiting = 1;
-    board->ghosts[1].current_move = 0;
-    board->ghosts[1].n_moves = 1;
-    board->ghosts[1].moves[0].command = 'R'; // Random
-    board->ghosts[1].moves[0].turns = 1; 
+        ghost->pos_x = 0;
+        ghost->pos_y = 0;
+        ghost->passo = 0;
+        ghost->waiting = 0;
+        ghost->current_move = 0;
+        ghost->n_moves = 0;
+        ghost->charged = 0;
+
+        int fd = open(ghosts_files[i], O_RDONLY);
+        if (fd < 0) {
+            perror("open");
+            return -1;
+        }
+
+        char linha[Line_SIZE + 1];
+        int line_index = 0;
+
+        char buffer[BUF_SIZE + 1];
+        ssize_t bytes;
+
+        while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
+            for (ssize_t i = 0; i < bytes; i++) {
+                char c = buffer[i];
+
+                if (c != '\n') 
+                    linha[line_index++] = c;
+
+                else {
+                    linha[line_index] = '\0';
+                    line_index = 0;
+
+                    if (linha[0] == '#')
+                        continue;
+
+                    else if (strncmp(linha, "PASSO", 5) == 0) 
+                        sscanf(linha, "PASSO %d", &ghost->passo);
+                    
+                    else if (strncmp(linha, "POS", 3) == 0) {
+                        sscanf(linha, "POS %d %d", ghost->pos_y, ghost->pos_x);
+                        board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
+                    }
+                    if (linha[0] == 'T') {
+                        // T n  -> espera n jogadas
+                        int time = 0;
+                        sscanf(linha, "T %d", &time);
+                        ghost->moves[ghost->n_moves].command = 'T';
+                        ghost->moves[ghost->n_moves].turns = time;
+                        ghost->moves[ghost->n_moves].turns_left = time;
+                    } else {
+                        // Comandos simples: A, D, W, S, R, C
+                        ghost->moves[ghost->n_moves].command = linha[0];
+                        ghost->moves[ghost->n_moves].turns = 1;
+                        ghost->moves[ghost->n_moves].turns_left = 1;
+                    }
+
+                    ghost->n_moves++;
+                }
+            }
+        }
+        close(fd);
+    } 
     
     return 0;
 }
 
-int load_level(board_t *board, int points, char *filepath) {
+int load_level(board_t *board, int points, char *filepath, char *directory) {
 
-    board->height = 5;
-    board->width = 10;
-    board->tempo = 10;
-
-    board->n_ghosts = 2;
+    board->width = 0;
+    board->height = 0;
+    board->tempo = 0;
+    
     board->n_pacmans = 1;
+    board->n_ghosts = 0;
+
+    board->board = NULL;
+    board->pacmans = NULL;
+    board->ghosts = NULL;
 
     int fd = open(filepath, O_RDONLY);
     if (fd < 0) {
@@ -400,7 +512,7 @@ int load_level(board_t *board, int points, char *filepath) {
         for (ssize_t i = 0; i < bytes; i++) {
             char c = buffer[i];
 
-            if (c != '\n' && c != '\r') 
+            if (c != '\n') 
                 linha[line_index++] = c;
 
             else {
@@ -416,9 +528,10 @@ int load_level(board_t *board, int points, char *filepath) {
                 else if (strncmp(linha, "TEMPO", 5) == 0)
                     sscanf(linha, "TEMPO %d", &board->tempo);
 
-                else if (strncmp(linha, "PAC", 3) == 0)
+                else if (strncmp(linha, "PAC", 3) == 0){
                     sscanf(linha, "PAC %s", board->pacman_file);
-
+                    board->n_pacmans++; 
+                } 
                 else if (strncmp(linha, "MON", 3) == 0) {
                     char *token = strtok(linha, " ");
                     token = strtok(NULL, " ");
@@ -430,8 +543,9 @@ int load_level(board_t *board, int points, char *filepath) {
                     }
                 }
                 else {
-                    board->board = calloc(board->width * board->height, sizeof(board_pos_t));
-                    // Board lines
+                    if(!board->board)
+                        board->board = calloc(board->width * board->height, sizeof(board_pos_t));
+
                     for (int j = 0; j < board->width && linha[j] != '\0'; j++) {
                         char ch = linha[j];
 
@@ -459,33 +573,14 @@ int load_level(board_t *board, int points, char *filepath) {
         }
     }
 
+    close(fd);
+
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
-
-    /*
-    sprintf(board->level_name, "Static Level");
     
-    for (int i = 0; i < board->height; i++) {
-        for (int j = 0; j < board->width; j++) {
-            if (i == 0 || j == 0 || j == (board->width - 1)) {
-                board->board[i * board->width + j].content = 'W';
-            }
-            else if (i == 4 && j == 8) {
-                board->board[i * board->width + j].content = ' ';
-                board->board[i * board->width + j].has_portal = 1;
-            }
-            else {
-                board->board[i * board->width + j].content = ' ';
-                board->board[i * board->width + j].has_dot = 1;
-            }
-        }
-    }
-    */
+    load_ghost(board, board->n_ghosts, board->ghosts_files);
+    load_pacman(board, points, board->pacman_file);
     
-    load_ghost(board);
-    load_pacman(board, points);
-    
-    close(fd);
 
     return 0;
 }
