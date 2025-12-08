@@ -530,7 +530,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
                     sscanf(linha, "TEMPO %d", &board->tempo);
 
                 else if (strncmp(linha, "PAC", 3) == 0){
-                    sscanf(linha, "PAC %s", &board->pacman_file);
+                    sscanf(linha, "PAC %s", board->pacman_file);
                     board->n_pacmans++; 
                 } 
                 else if (strncmp(linha, "MON", 3) == 0) {
@@ -575,16 +575,32 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
 
     close(fd);
 
-    char pac_fullpath[MAX_FILENAME];
-    
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
-    snprintf(pac_fullpath, MAX_FILENAME, "%s/%s", directory, board->pacman_file);
-    
-    load_pacman(board, points, pac_fullpath);
+    char fullpath[8192];
+
+    if (board->pacman_file[0] != '\0') {
+        fullpath[0] = '\0';
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", directory, board->pacman_file);
+
+        load_pacman(board, points, fullpath); 
+    } else {
+        // Pacman controlado pelo teclado, posição default
+        pacman_t *pac = &board->pacmans[0];
+        pac->alive = 1;
+        pac->points = points;
+        pac->current_move = 0;
+        pac->waiting = 0;
+        pac->n_moves = 0;
+        pac->passo = 0;
+
+        pac->pos_x = 1;
+        pac->pos_y = 1;
+        board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
+    }
 
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
     for (int i = 0; i < board->n_ghosts; i++) {
-        char fullpath[MAX_FILENAME];
+        char fullpath[8192];
         snprintf(fullpath, sizeof(fullpath), "%s/%s", directory, board->ghosts_files[i]);
         strncpy(board->ghosts_files[i], fullpath, MAX_FILENAME - 1);
         board->ghosts_files[i][MAX_FILENAME - 1] = '\0';

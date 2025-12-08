@@ -4,6 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <string.h>
 
 
 #define CONTINUE_PLAY 0
@@ -69,25 +70,24 @@ int play_board(board_t * game_board) {
     return CONTINUE_PLAY;  
 }
 
-/*int is_lvl_file(const char *filename) {
+int is_lvl_file(char *filename) {
     int len = strlen(filename);
     if (len < 4) return 0;
     return strcmp(filename + (len - 4), ".lvl") == 0;
 }
-*/
+
 int main(int argc, char** argv) {
     if (argc != 2) {
         printf("Usage: %s <level_directory>\n", argv[0]);
-        /*DIR * dir = opendir(argv[1]);
-        if (!dir) {
-            perror("opendir");
-            return EXIT_FAILURE;
-        }
-        */
+        
         // TODO receive inputs
     }
     
-    //DIR * dir = opendir(argv[1]);
+    DIR * dir = opendir(argv[1]);
+    if (!dir) {
+        perror("opendir");
+        return EXIT_FAILURE;
+    }
 
     // Random seed for any random movements
     srand((unsigned int)time(NULL));
@@ -100,45 +100,56 @@ int main(int argc, char** argv) {
     bool end_game = false;
     board_t game_board;
 
-    /*
+    char level_files[MAX_LEVELS][MAX_FILENAME];
+    int n_levels = 0;
+    
     struct dirent *entry;
 
     while ((entry = readdir(dir)) != NULL) {
         if (!is_lvl_file(entry->d_name))
             continue;
             
-        //char *file = argv[1] + '/' + entry->d_name;
-        */
-        while (!end_game) {
-            load_level(&game_board, accumulated_points);
-            draw_board(&game_board, DRAW_MENU);
-            refresh_screen();
+        strncpy(level_files[n_levels], entry->d_name, MAX_FILENAME - 1);
+        level_files[n_levels][MAX_FILENAME - 1] = '\0';
+        n_levels++;
+
+        if (n_levels >= MAX_LEVELS)
+            break;
+    }
+
+    closedir(dir);
+
+    for (int lvl_index = 0; lvl_index < n_levels && !end_game; lvl_index++) {
+        char filepath[8192];
+
+        snprintf(filepath, sizeof(filepath), "%s/%s", argv[1], level_files[lvl_index]);
+        load_level(&game_board, accumulated_points, filepath, argv[1]);
+        draw_board(&game_board, DRAW_MENU);
+        refresh_screen();
+        
+        while(true) {
+            int result = play_board(&game_board); 
             
-            while(true) {
-                int result = play_board(&game_board); 
-                
-                if(result == NEXT_LEVEL) {
-                    screen_refresh(&game_board, DRAW_WIN);
-                    sleep_ms(game_board.tempo);
-                    break;
-                }
-                
-                if(result == QUIT_GAME) {
-                    screen_refresh(&game_board, DRAW_GAME_OVER); 
-                    sleep_ms(game_board.tempo);
-                    end_game = true;
-                    break;
-                }
-                
-                screen_refresh(&game_board, DRAW_MENU); 
-                
-                accumulated_points = game_board.pacmans[0].points;      
+            if(result == NEXT_LEVEL) {
+                screen_refresh(&game_board, DRAW_WIN);
+                sleep_ms(game_board.tempo);
+                break;
             }
-            print_board(&game_board);
-            unload_level(&game_board);
+            
+            if(result == QUIT_GAME) {
+                screen_refresh(&game_board, DRAW_GAME_OVER); 
+                sleep_ms(game_board.tempo);
+                end_game = true;
+                break;
+            }
+            
+            screen_refresh(&game_board, DRAW_MENU); 
+            
+            accumulated_points = game_board.pacmans[0].points;      
         }
-        //closedir(dir);
-    
+        print_board(&game_board);
+        unload_level(&game_board);
+    }
             
     terminal_cleanup();
 
