@@ -338,12 +338,13 @@ void parse_pacman_line(board_t *board, pacman_t *pac, char *linha){
     if (linha[0] == '#')
         return;
 
-    // PASSO N
+    //PASSO N
     else if (strncmp(linha, "PASSO", 5) == 0) {
         sscanf(linha, "PASSO %d", &pac->passo);
         return;
     }
 
+    //POS X Y
     else if (strncmp(linha, "POS", 3) == 0) {
         sscanf(linha, "POS %d %d", &pac->pos_y, &pac->pos_x) ;
         board->board[get_board_index(board, pac->pos_x, pac->pos_y)].content = 'P';
@@ -355,14 +356,14 @@ void parse_pacman_line(board_t *board, pacman_t *pac, char *linha){
     }
 
     else if (linha[0] == 'T') {
-        // T n -> espera n jogadas
+        //T n : espera n jogadas
         int time = 0;
         sscanf(linha, "T %d", &time);
         pac->moves[pac->n_moves].command = 'T';
         pac->moves[pac->n_moves].turns = time;
         pac->moves[pac->n_moves].turns_left = time;
     } else {
-        // comandos simples: A,D,W,S,R,C
+        //Comandos simples: A,D,W,S,R,C
         pac->moves[pac->n_moves].command = linha[0];
         pac->moves[pac->n_moves].turns = 1;
         pac->moves[pac->n_moves].turns_left = 1;
@@ -393,6 +394,7 @@ int load_pacman(board_t* board, int points, char *filepath) {
     int line_index = 0;
     ssize_t bytes;
 
+    //Lê o ficheiro linha a linha
     while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
         for (ssize_t i = 0; i < bytes; i++) {
             char c = buffer[i];
@@ -405,11 +407,13 @@ int load_pacman(board_t* board, int points, char *filepath) {
                 linha[line_index] = '\0';
                 line_index = 0;
 
+                //Processa a linha lida
                 parse_pacman_line(board, pac, linha);
             }
         }
     }
-    
+
+    //Processa a última linha caso não tenha '\n'
     if (line_index > 0) {
         linha[line_index] = '\0';
         parse_pacman_line(board, pac, linha);
@@ -423,11 +427,13 @@ void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha){
     if (linha[0] == '#')
         return;
 
+    //PASSO N
     else if (strncmp(linha, "PASSO", 5) == 0) {
         sscanf(linha, "PASSO %d", &ghost->passo);
         return;
     }
 
+    //POS X Y
     else if (strncmp(linha, "POS", 3) == 0) {
         sscanf(linha, "POS %d %d", &ghost->pos_y, &ghost->pos_x);
         board->board[get_board_index(board, ghost->pos_x, ghost->pos_y)].content = 'M';
@@ -439,12 +445,14 @@ void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha){
     }
 
     if (linha[0] == 'T') {
+        //T n : espera n jogadas
         int time = 0;
         sscanf(linha, "T %d", &time);
         ghost->moves[ghost->n_moves].command = 'T';
         ghost->moves[ghost->n_moves].turns = time;
         ghost->moves[ghost->n_moves].turns_left = time;
     } else {
+        //Comandos simples: A,D,W,S,R,C
         ghost->moves[ghost->n_moves].command = linha[0];
         ghost->moves[ghost->n_moves].turns = 1;
         ghost->moves[ghost->n_moves].turns_left = 1;
@@ -457,7 +465,7 @@ void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha){
 int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_FILENAME]) {
     if (n_ghosts > MAX_GHOSTS)
         n_ghosts = MAX_GHOSTS;
-        
+
     for (int i = 0; i < n_ghosts; i++) {
         ghost_t *ghost = &board->ghosts[i];
 
@@ -481,6 +489,7 @@ int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_F
         char buffer[BUF_SIZE + 1];
         ssize_t bytes;
 
+        //Lê o ficheiro linha a linha
         while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
             for (ssize_t i = 0; i < bytes; i++) {
                 char c = buffer[i];
@@ -492,11 +501,13 @@ int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_F
                     linha[line_index] = '\0';
                     line_index = 0;
 
+                    //Processa a linha lida
                     parse_ghost_line(board, ghost, linha);
                 }
             }
         }
 
+        //Processa a última linha caso não tenha '\n'
         if (line_index > 0) {
             linha[line_index] = '\0';
             parse_ghost_line(board, ghost, linha);
@@ -512,15 +523,19 @@ void parse_level_line(board_t *board, char *linha, int *row){
     if (linha[0] == '#')
         return;
 
+    //DIM H W
     else if (strncmp(linha, "DIM", 3) == 0)
         sscanf(linha, "DIM %d %d", &board->height, &board->width);
 
+    //TEMPO t
     else if (strncmp(linha, "TEMPO", 5) == 0)
         sscanf(linha, "TEMPO %d", &board->tempo);
 
+    //PAC nome
     else if (strncmp(linha, "PAC", 3) == 0)
         sscanf(linha, "PAC %s", board->pacman_file);
 
+    //MON nomes
     else if (strncmp(linha, "MON", 3) == 0) {
         char *token = strtok(linha, " ");
         token = strtok(NULL, " ");
@@ -532,6 +547,7 @@ void parse_level_line(board_t *board, char *linha, int *row){
         }
     }
     else {
+        //Linhas que representam o conteúdo da matriz do tabuleiro
         if(!board->board)
             board->board = calloc(board->width * board->height, sizeof(board_pos_t));
             
@@ -561,7 +577,6 @@ void parse_level_line(board_t *board, char *linha, int *row){
 }
 
 int load_level(board_t *board, int points, char *filepath, char *directory) {
-
     board->width = 0;
     board->height = 0;
     board->tempo = 0;
@@ -587,6 +602,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
 
     int row = 0;
 
+    //Lê o ficheiro linha a linha
     while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
         for (ssize_t i = 0; i < bytes; i++) {
             char c = buffer[i];
@@ -597,12 +613,14 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
             else {
                 linha[line_index] = '\0';
                 line_index = 0;
-
+                
+                //Processa a linha lida
                 parse_level_line(board, linha, &row);
             }
         }
     }
     
+    //Processa a última linha caso não tenha '\n'
     if (line_index > 0) {
         linha[line_index] = '\0';
         parse_level_line(board, linha, &row);
@@ -612,14 +630,15 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
 
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     char fullpath[BIG_BUFFER_SIZE];
-
+    
+    //Constrói path completo para o ficheiro .p
     if (board->pacman_file[0] != '\0') {
         fullpath[0] = '\0';
         snprintf(fullpath, sizeof(fullpath), "%s/%s", directory, board->pacman_file);
 
         load_pacman(board, points, fullpath); 
     } else {
-        // Pacman controlado pelo teclado, posição default
+        // Sem ficheiro PAC
         pacman_t *pac = &board->pacmans[0];
         pac->alive = 1;
         pac->points = points;
@@ -652,6 +671,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
     }
 
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
+    //Constrói paths completos para cada ficheiro .m
     for (int i = 0; i < board->n_ghosts; i++) {
         char fullpath[BIG_BUFFER_SIZE];
         snprintf(fullpath, sizeof(fullpath), "%s/%s", directory, board->ghosts_files[i]);
