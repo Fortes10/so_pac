@@ -337,7 +337,6 @@ void kill_pacman(board_t* board, int pacman_index) {
     pac->alive = 0;
 }
 
-// Static Loading
 int load_pacman(board_t* board, int points, char *filepath) {
     int fd = open(filepath, O_RDONLY);
     if (fd < 0) {
@@ -378,12 +377,15 @@ int load_pacman(board_t* board, int points, char *filepath) {
                     continue;
 
                 // PASSO N
-                else if (strncmp(linha, "PASSO", 5) == 0)
-                    sscanf(linha, "PASSO %d", pac->passo);
+                else if (strncmp(linha, "PASSO", 5) == 0) {
+                    sscanf(linha, "PASSO %d", &pac->passo);
+                    continue;
+                }
 
                 else if (strncmp(linha, "POS", 3) == 0) {
-                    sscanf(linha, "POS %d %d", pac->pos_y, pac->pos_x) ;
+                    sscanf(linha, "POS %d %d", &pac->pos_y, &pac->pos_x) ;
                     board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
+                    continue;
                 }
 
                 else if (linha[0] == 'T') {
@@ -393,9 +395,7 @@ int load_pacman(board_t* board, int points, char *filepath) {
                     pac->moves[pac->n_moves].command = 'T';
                     pac->moves[pac->n_moves].turns = time;
                     pac->moves[pac->n_moves].turns_left = time;
-                } 
-                
-                else {
+                } else {
                     // comandos simples: A,D,W,S,R,C
                     pac->moves[pac->n_moves].command = linha[0];
                     pac->moves[pac->n_moves].turns = 1;
@@ -411,7 +411,6 @@ int load_pacman(board_t* board, int points, char *filepath) {
     return 0;
 }
 
-// Static Loading
 int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_FILENAME]) {
     for (int i = 0; i < n_ghosts; i++) {
         ghost_t *ghost = &board->ghosts[i];
@@ -450,15 +449,17 @@ int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_F
                     if (linha[0] == '#')
                         continue;
 
-                    else if (strncmp(linha, "PASSO", 5) == 0) 
+                    else if (strncmp(linha, "PASSO", 5) == 0) {
                         sscanf(linha, "PASSO %d", &ghost->passo);
-                    
+                        continue;
+                    }
+
                     else if (strncmp(linha, "POS", 3) == 0) {
-                        sscanf(linha, "POS %d %d", ghost->pos_y, ghost->pos_x);
+                        sscanf(linha, "POS %d %d", &ghost->pos_y, &ghost->pos_x);
                         board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
+                        continue;
                     }
                     if (linha[0] == 'T') {
-                        // T n  -> espera n jogadas
                         int time = 0;
                         sscanf(linha, "T %d", &time);
                         ghost->moves[ghost->n_moves].command = 'T';
@@ -477,7 +478,7 @@ int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_F
         }
         close(fd);
     } 
-    
+
     return 0;
 }
 
@@ -529,7 +530,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
                     sscanf(linha, "TEMPO %d", &board->tempo);
 
                 else if (strncmp(linha, "PAC", 3) == 0){
-                    sscanf(linha, "PAC %s", board->pacman_file);
+                    sscanf(linha, "PAC %s", &board->pacman_file);
                     board->n_pacmans++; 
                 } 
                 else if (strncmp(linha, "MON", 3) == 0) {
@@ -567,7 +568,6 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
                     if (row >= board->height) {
                         break; 
                     }
-
                 }
             }
         }
@@ -575,11 +575,21 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
 
     close(fd);
 
-    board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
-    board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
+    char pac_fullpath[MAX_FILENAME];
     
+    board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
+    snprintf(pac_fullpath, MAX_FILENAME, "%s/%s", directory, board->pacman_file);
+    
+    load_pacman(board, points, pac_fullpath);
+
+    board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
+    for (int i = 0; i < board->n_ghosts; i++) {
+        char fullpath[MAX_FILENAME];
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", directory, board->ghosts_files[i]);
+        strncpy(board->ghosts_files[i], fullpath, MAX_FILENAME - 1);
+        board->ghosts_files[i][MAX_FILENAME - 1] = '\0';
+    }
     load_ghost(board, board->n_ghosts, board->ghosts_files);
-    load_pacman(board, points, board->pacman_file);
     
 
     return 0;

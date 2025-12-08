@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
             }
             print_board(&game_board);
             unload_level(&game_board);
-        }    
+        }
         //closedir(dir);
     
             
