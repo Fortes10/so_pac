@@ -363,7 +363,7 @@ int load_pacman(board_t* board, int points, char *filepath) {
         for (ssize_t i = 0; i < bytes; i++) {
             char c = buffer[i];
 
-            if (c != '\n') {
+            if (c != '\n' && c != '\r') {
                 if (line_index < Line_SIZE)
                     linha[line_index++] = c;
             } 
@@ -439,7 +439,7 @@ int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_F
             for (ssize_t i = 0; i < bytes; i++) {
                 char c = buffer[i];
 
-                if (c != '\n') 
+                if (c != '\n' && c != '\r') 
                     linha[line_index++] = c;
 
                 else {
@@ -513,7 +513,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
         for (ssize_t i = 0; i < bytes; i++) {
             char c = buffer[i];
 
-            if (c != '\n') 
+            if (c != '\n' && c != '\r') 
                 linha[line_index++] = c;
 
             else {
@@ -529,10 +529,9 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
                 else if (strncmp(linha, "TEMPO", 5) == 0)
                     sscanf(linha, "TEMPO %d", &board->tempo);
 
-                else if (strncmp(linha, "PAC", 3) == 0){
+                else if (strncmp(linha, "PAC", 3) == 0)
                     sscanf(linha, "PAC %s", board->pacman_file);
-                    board->n_pacmans++; 
-                } 
+
                 else if (strncmp(linha, "MON", 3) == 0) {
                     char *token = strtok(linha, " ");
                     token = strtok(NULL, " ");

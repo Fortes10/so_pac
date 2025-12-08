@@ -1,18 +1,15 @@
-REFRESH
-REFRESH
 KEY Q
 REFRESH
-=== [14305] LEVEL INFO ===
+=== [16113] LEVEL INFO ===
 Dimensions: 6 x 6
 Tempo: 10
-Pacman file: 1.p
-Monster files (2):
+Pacman file: 
+Monster files (1):
   - /home/antelesfortes/Documents/SO/test/1.m
-  - /home/antelesfortes/Documents/SO/test/3.m
 
 === BOARD ===
 WW WWW
-W   WW
+WP  WW
 W W WW
 W    W
 WM   W
