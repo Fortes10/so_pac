@@ -5,6 +5,9 @@
 #define MAX_LEVELS 20
 #define MAX_FILENAME 256
 #define MAX_GHOSTS 25
+#define BIG_BUFFER_SIZE 8192
+#define BUF_SIZE 1024
+#define Line_SIZE (256 * 25)
 
 typedef enum {
     REACHED_PORTAL = 1,
@@ -71,11 +74,20 @@ int move_ghost(board_t* board, int ghost_index, command_t* command);
 /*Process the death of a Pacman*/
 void kill_pacman(board_t* board, int pacman_index);
 
+/*Parses a line from the pacman file and updates the pacman accordingly*/
+void parse_pacman_line(board_t *board, pacman_t *pac, char *linha);
+
 /*Adds a pacman to the board*/
 int load_pacman(board_t* board, int points, char *filepath);
 
+/*Parses a line from the ghost file and updates the ghost accordingly*/
+void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha);
+
 /*Adds a ghost(monster) to the board*/
 int load_ghost(board_t* board, int ghost_number, char ghosts_files[MAX_GHOSTS][MAX_FILENAME]);
+
+/*Parses a line from the level file and updates the board accordingly*/
+void parse_level_line(board_t *board, char *linha, int *row);
 
 /*Loads a level into board*/
 int load_level(board_t* board, int accumulated_points, char *filepath, char *directory);

@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
     closedir(dir);
 
     for (int lvl_index = 0; lvl_index < n_levels && !end_game; lvl_index++) {
-        char filepath[8192];
+        char filepath[BIG_BUFFER_SIZE];
 
         snprintf(filepath, sizeof(filepath), "%s/%s", argv[1], level_files[lvl_index]);
         load_level(&game_board, accumulated_points, filepath, argv[1]);

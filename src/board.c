@@ -9,9 +9,6 @@
 
 FILE * debugfile;
 
-#define BUF_SIZE 1024
-#define Line_SIZE (256 * 25)
-
 // Helper private function to find and kill pacman at specific position
 static int find_and_kill_pacman(board_t* board, int new_x, int new_y) {
     for (int p = 0; p < board->n_pacmans; p++) {
@@ -349,7 +346,11 @@ void parse_pacman_line(board_t *board, pacman_t *pac, char *linha){
 
     else if (strncmp(linha, "POS", 3) == 0) {
         sscanf(linha, "POS %d %d", &pac->pos_y, &pac->pos_x) ;
-        board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
+        board->board[get_board_index(board, pac->pos_x, pac->pos_y)].content = 'P';
+        return;
+    }
+
+    if (pac->n_moves >= MAX_MOVES) {
         return;
     }
 
@@ -397,8 +398,7 @@ int load_pacman(board_t* board, int points, char *filepath) {
             char c = buffer[i];
 
             if (c != '\n' && c != '\r') {
-                if (line_index < Line_SIZE)
-                    linha[line_index++] = c;
+                linha[line_index++] = c;
             } 
             
             else {
@@ -430,9 +430,14 @@ void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha){
 
     else if (strncmp(linha, "POS", 3) == 0) {
         sscanf(linha, "POS %d %d", &ghost->pos_y, &ghost->pos_x);
-        board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
+        board->board[get_board_index(board, ghost->pos_x, ghost->pos_y)].content = 'M';
         return;
     }
+
+    else if (ghost->n_moves >= MAX_MOVES) {
+        return;
+    }
+
     if (linha[0] == 'T') {
         int time = 0;
         sscanf(linha, "T %d", &time);
@@ -450,6 +455,9 @@ void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha){
 
 
 int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_FILENAME]) {
+    if (n_ghosts > MAX_GHOSTS)
+        n_ghosts = MAX_GHOSTS;
+        
     for (int i = 0; i < n_ghosts; i++) {
         ghost_t *ghost = &board->ghosts[i];
 
@@ -536,15 +544,15 @@ void parse_level_line(board_t *board, char *linha, int *row){
 
             switch (ch) {
                 case 'X':
-                    board->board[*row * board->width + j].content = 'W';
+                    board->board[get_board_index(board, j, *row)].content = 'W';
                     break;
                 case 'o':
-                    board->board[*row * board->width + j].content = ' ';
-                    board->board[*row * board->width + j].has_dot = 1;
+                    board->board[get_board_index(board, j, *row)].content = ' ';
+                    board->board[get_board_index(board, j, *row)].has_dot = 1;
                     break;
                 case '@':
-                    board->board[*row * board->width + j].content = ' ';
-                    board->board[*row * board->width + j].has_portal = 1;
+                    board->board[get_board_index(board, j, *row)].content = ' ';
+                    board->board[get_board_index(board, j, *row)].has_portal = 1;
                     break;
             }
         }
@@ -603,7 +611,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
     close(fd);
 
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
-    char fullpath[8192];
+    char fullpath[BIG_BUFFER_SIZE];
 
     if (board->pacman_file[0] != '\0') {
         fullpath[0] = '\0';
@@ -620,14 +628,32 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
         pac->n_moves = 0;
         pac->passo = 0;
 
-        pac->pos_x = 1;
-        pac->pos_y = 1;
-        board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
+        int start_x = 1;
+        int start_y = 1;
+
+        int found = 0;
+        if (board->board[get_board_index(board, start_x, start_y)].content != 'W') {
+            found = 1;
+        } else {
+            //Se a posição (1,1) estiver ocupada, procura a primeira posição livre
+            for (int y = 0; y < board->height && !found; y++) {
+                for (int x = 0; x < board->width && !found; x++) {
+                    if (board->board[get_board_index(board, x, y)].content != 'W') {
+                        start_x = x;
+                        start_y = y;
+                        found = 1;
+                    }
+                }
+            }
+        }
+        pac->pos_x = start_x;
+        pac->pos_y = start_y;
+        board->board[get_board_index(board, pac->pos_x, pac->pos_y)].content = 'P';
     }
 
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
     for (int i = 0; i < board->n_ghosts; i++) {
-        char fullpath[8192];
+        char fullpath[BIG_BUFFER_SIZE];
         snprintf(fullpath, sizeof(fullpath), "%s/%s", directory, board->ghosts_files[i]);
         strncpy(board->ghosts_files[i], fullpath, MAX_FILENAME - 1);
         board->ghosts_files[i][MAX_FILENAME - 1] = '\0';
@@ -668,7 +694,7 @@ void print_board(board_t *board) {
     }
 
     // Large buffer to accumulate the whole output
-    char buffer[8192];
+    char buffer[BIG_BUFFER_SIZE];
     size_t offset = 0;
 
     offset += snprintf(buffer + offset, sizeof(buffer) - offset,
