@@ -1,15 +1,120 @@
-KEY Q
+KEY D
 REFRESH
-=== [16113] LEVEL INFO ===
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY S
+REFRESH
+KEY D
+REFRESH
+KEY W
+REFRESH
+KEY A
+REFRESH
+KEY A
+REFRESH
+KEY A
+REFRESH
+KEY S
+REFRESH
+KEY W
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY S
+REFRESH
+KEY S
+REFRESH
+KEY S
+REFRESH
+KEY A
+REFRESH
+KEY A
+REFRESH
+KEY A
+REFRESH
+KEY A
+REFRESH
+KEY W
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+=== [19446] LEVEL INFO ===
+Dimensions: 6 x 10
+Tempo: 10
+Pacman file: 
+Monster files (2):
+  - /home/antelesfortes/Documents/SO/test/1.m
+  - /home/antelesfortes/Documents/SO/test/2.m
+
+=== BOARD ===
+WW WWWWWWW
+W       WW
+WMW MW  WW
+W       PW
+W        W
+WWWWWWWWWW
+==================
+KEY W
+REFRESH
+KEY D
+REFRESH
+KEY W
+REFRESH
+KEY A
+REFRESH
+KEY S
+REFRESH
+KEY D
+REFRESH
+KEY A
+REFRESH
+KEY A
+REFRESH
+KEY S
+REFRESH
+KEY S
+REFRESH
+KEY D
+REFRESH
+KEY S
+REFRESH
+KEY D
+REFRESH
+KEY D
+REFRESH
+KEY W
+REFRESH
+=== [19446] LEVEL INFO ===
 Dimensions: 6 x 6
 Tempo: 10
 Pacman file: 
-Monster files (1):
+Monster files (2):
   - /home/antelesfortes/Documents/SO/test/1.m
+  - /home/antelesfortes/Documents/SO/test/3.m
 
 === BOARD ===
 WW WWW
-WP  WW
-W W WW
+W   WW
+WMWMWW
+W   PW
 W    W
-WM   W
+WWWWWW
+==================

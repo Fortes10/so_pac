@@ -337,6 +337,39 @@ void kill_pacman(board_t* board, int pacman_index) {
     pac->alive = 0;
 }
 
+void parse_pacman_line(board_t *board, pacman_t *pac, char *linha){
+    if (linha[0] == '#')
+        return;
+
+    // PASSO N
+    else if (strncmp(linha, "PASSO", 5) == 0) {
+        sscanf(linha, "PASSO %d", &pac->passo);
+        return;
+    }
+
+    else if (strncmp(linha, "POS", 3) == 0) {
+        sscanf(linha, "POS %d %d", &pac->pos_y, &pac->pos_x) ;
+        board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
+        return;
+    }
+
+    else if (linha[0] == 'T') {
+        // T n -> espera n jogadas
+        int time = 0;
+        sscanf(linha, "T %d", &time);
+        pac->moves[pac->n_moves].command = 'T';
+        pac->moves[pac->n_moves].turns = time;
+        pac->moves[pac->n_moves].turns_left = time;
+    } else {
+        // comandos simples: A,D,W,S,R,C
+        pac->moves[pac->n_moves].command = linha[0];
+        pac->moves[pac->n_moves].turns = 1;
+        pac->moves[pac->n_moves].turns_left = 1;
+    }
+
+    pac->n_moves++;
+}
+
 int load_pacman(board_t* board, int points, char *filepath) {
     int fd = open(filepath, O_RDONLY);
     if (fd < 0) {
@@ -372,44 +405,49 @@ int load_pacman(board_t* board, int points, char *filepath) {
                 linha[line_index] = '\0';
                 line_index = 0;
 
-                // Ignorar comentários
-                if (linha[0] == '#')
-                    continue;
-
-                // PASSO N
-                else if (strncmp(linha, "PASSO", 5) == 0) {
-                    sscanf(linha, "PASSO %d", &pac->passo);
-                    continue;
-                }
-
-                else if (strncmp(linha, "POS", 3) == 0) {
-                    sscanf(linha, "POS %d %d", &pac->pos_y, &pac->pos_x) ;
-                    board->board[pac->pos_y * board->width + pac->pos_x].content = 'P';
-                    continue;
-                }
-
-                else if (linha[0] == 'T') {
-                    // T n -> espera n jogadas
-                    int time = 0;
-                    sscanf(linha, "T %d", &time);
-                    pac->moves[pac->n_moves].command = 'T';
-                    pac->moves[pac->n_moves].turns = time;
-                    pac->moves[pac->n_moves].turns_left = time;
-                } else {
-                    // comandos simples: A,D,W,S,R,C
-                    pac->moves[pac->n_moves].command = linha[0];
-                    pac->moves[pac->n_moves].turns = 1;
-                    pac->moves[pac->n_moves].turns_left = 1;
-                }
-
-                pac->n_moves++;
+                parse_pacman_line(board, pac, linha);
             }
         }
+    }
+    
+    if (line_index > 0) {
+        linha[line_index] = '\0';
+        parse_pacman_line(board, pac, linha);
     }
     close(fd);
 
     return 0;
 }
+
+void parse_ghost_line(board_t *board, ghost_t *ghost, char *linha){
+    if (linha[0] == '#')
+        return;
+
+    else if (strncmp(linha, "PASSO", 5) == 0) {
+        sscanf(linha, "PASSO %d", &ghost->passo);
+        return;
+    }
+
+    else if (strncmp(linha, "POS", 3) == 0) {
+        sscanf(linha, "POS %d %d", &ghost->pos_y, &ghost->pos_x);
+        board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
+        return;
+    }
+    if (linha[0] == 'T') {
+        int time = 0;
+        sscanf(linha, "T %d", &time);
+        ghost->moves[ghost->n_moves].command = 'T';
+        ghost->moves[ghost->n_moves].turns = time;
+        ghost->moves[ghost->n_moves].turns_left = time;
+    } else {
+        ghost->moves[ghost->n_moves].command = linha[0];
+        ghost->moves[ghost->n_moves].turns = 1;
+        ghost->moves[ghost->n_moves].turns_left = 1;
+    }
+
+    ghost->n_moves++;
+}
+
 
 int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_FILENAME]) {
     for (int i = 0; i < n_ghosts; i++) {
@@ -446,40 +484,72 @@ int load_ghost(board_t* board, int n_ghosts, char ghosts_files[MAX_GHOSTS][MAX_F
                     linha[line_index] = '\0';
                     line_index = 0;
 
-                    if (linha[0] == '#')
-                        continue;
-
-                    else if (strncmp(linha, "PASSO", 5) == 0) {
-                        sscanf(linha, "PASSO %d", &ghost->passo);
-                        continue;
-                    }
-
-                    else if (strncmp(linha, "POS", 3) == 0) {
-                        sscanf(linha, "POS %d %d", &ghost->pos_y, &ghost->pos_x);
-                        board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
-                        continue;
-                    }
-                    if (linha[0] == 'T') {
-                        int time = 0;
-                        sscanf(linha, "T %d", &time);
-                        ghost->moves[ghost->n_moves].command = 'T';
-                        ghost->moves[ghost->n_moves].turns = time;
-                        ghost->moves[ghost->n_moves].turns_left = time;
-                    } else {
-                        // Comandos simples: A, D, W, S, R, C
-                        ghost->moves[ghost->n_moves].command = linha[0];
-                        ghost->moves[ghost->n_moves].turns = 1;
-                        ghost->moves[ghost->n_moves].turns_left = 1;
-                    }
-
-                    ghost->n_moves++;
+                    parse_ghost_line(board, ghost, linha);
                 }
             }
         }
+
+        if (line_index > 0) {
+            linha[line_index] = '\0';
+            parse_ghost_line(board, ghost, linha);
+        }
+
         close(fd);
     } 
 
     return 0;
+}
+
+void parse_level_line(board_t *board, char *linha, int *row){
+    if (linha[0] == '#')
+        return;
+
+    else if (strncmp(linha, "DIM", 3) == 0)
+        sscanf(linha, "DIM %d %d", &board->height, &board->width);
+
+    else if (strncmp(linha, "TEMPO", 5) == 0)
+        sscanf(linha, "TEMPO %d", &board->tempo);
+
+    else if (strncmp(linha, "PAC", 3) == 0)
+        sscanf(linha, "PAC %s", board->pacman_file);
+
+    else if (strncmp(linha, "MON", 3) == 0) {
+        char *token = strtok(linha, " ");
+        token = strtok(NULL, " ");
+        while (token && board->n_ghosts < MAX_GHOSTS) {
+            strncpy(board->ghosts_files[board->n_ghosts], token, MAX_FILENAME - 1);
+            board->ghosts_files[board->n_ghosts][MAX_FILENAME - 1] = '\0';
+            board->n_ghosts++;
+            token = strtok(NULL, " ");
+        }
+    }
+    else {
+        if(!board->board)
+            board->board = calloc(board->width * board->height, sizeof(board_pos_t));
+            
+        if (*row >= board->height) {
+            return; 
+        }
+
+        for (int j = 0; j < board->width && linha[j] != '\0'; j++) {
+            char ch = linha[j];
+
+            switch (ch) {
+                case 'X':
+                    board->board[*row * board->width + j].content = 'W';
+                    break;
+                case 'o':
+                    board->board[*row * board->width + j].content = ' ';
+                    board->board[*row * board->width + j].has_dot = 1;
+                    break;
+                case '@':
+                    board->board[*row * board->width + j].content = ' ';
+                    board->board[*row * board->width + j].has_portal = 1;
+                    break;
+            }
+        }
+        (*row)++; 
+    }
 }
 
 int load_level(board_t *board, int points, char *filepath, char *directory) {
@@ -520,56 +590,14 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
                 linha[line_index] = '\0';
                 line_index = 0;
 
-                if (linha[0] == '#')
-                    continue;
-
-                else if (strncmp(linha, "DIM", 3) == 0)
-                    sscanf(linha, "DIM %d %d", &board->height, &board->width);
-
-                else if (strncmp(linha, "TEMPO", 5) == 0)
-                    sscanf(linha, "TEMPO %d", &board->tempo);
-
-                else if (strncmp(linha, "PAC", 3) == 0)
-                    sscanf(linha, "PAC %s", board->pacman_file);
-
-                else if (strncmp(linha, "MON", 3) == 0) {
-                    char *token = strtok(linha, " ");
-                    token = strtok(NULL, " ");
-                    while (token && board->n_ghosts < MAX_GHOSTS) {
-                        strncpy(board->ghosts_files[board->n_ghosts], token, MAX_FILENAME - 1);
-                        board->ghosts_files[board->n_ghosts][MAX_FILENAME - 1] = '\0';
-                        board->n_ghosts++;
-                        token = strtok(NULL, " ");
-                    }
-                }
-                else {
-                    if(!board->board)
-                        board->board = calloc(board->width * board->height, sizeof(board_pos_t));
-
-                    for (int j = 0; j < board->width && linha[j] != '\0'; j++) {
-                        char ch = linha[j];
-
-                        switch (ch) {
-                            case 'X':
-                                board->board[row * board->width + j].content = 'W';
-                                break;
-                            case 'o':
-                                board->board[row * board->width + j].content = ' ';
-                                board->board[row * board->width + j].has_dot = 1;
-                                break;
-                            case '@':
-                                board->board[row * board->width + j].content = ' ';
-                                board->board[row * board->width + j].has_portal = 1;
-                                break;
-                        }
-                    }
-                    row++; 
-                    if (row >= board->height) {
-                        break; 
-                    }
-                }
+                parse_level_line(board, linha, &row);
             }
         }
+    }
+    
+    if (line_index > 0) {
+        linha[line_index] = '\0';
+        parse_level_line(board, linha, &row);
     }
 
     close(fd);
