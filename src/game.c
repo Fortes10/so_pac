@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 
 #define CONTINUE_PLAY 0
@@ -27,10 +29,13 @@ int play_board(board_t * game_board) {
     if (pacman->n_moves == 0) { // if is user input
         command_t c; 
         c.command = get_input();
-
+        
         if(c.command == '\0')
             return CONTINUE_PLAY;
 
+        if(c.command == 'G')
+            return CREATE_BACKUP;
+        
         c.turns = 1;
         play = &c;
     }
@@ -127,9 +132,46 @@ int main(int argc, char** argv) {
         draw_board(&game_board, DRAW_MENU);
         refresh_screen();
         
+        int has_backup = 0;
+
         while(true) {
             int result = play_board(&game_board); 
-            
+
+            if(result == CREATE_BACKUP){
+                if(has_backup == 0){
+                    has_backup = 1;
+                    pid_t pid = fork();
+
+                    if(pid == 0){
+                        continue;
+                    }
+
+                    else{
+                        int status;
+                        waitpid(pid, &status, 0);
+                        if(WIFEXITED(status)){
+                            int code = WEXITSTATUS(status);
+
+                            if(code == 1){
+                                has_backup = 0;
+                                continue;
+                            }
+                            else if(code == 0){
+                                end_game = true;
+                                break;
+                            }
+                        }
+                        else{
+                            end_game = true;
+                            break;
+                        }
+                    }
+                }
+                else{
+                    continue;
+                }
+            }
+
             if(result == NEXT_LEVEL) {
                 screen_refresh(&game_board, DRAW_WIN);
                 sleep_ms(game_board.tempo);
@@ -137,10 +179,18 @@ int main(int argc, char** argv) {
             }
             
             if(result == QUIT_GAME) {
-                screen_refresh(&game_board, DRAW_GAME_OVER); 
-                sleep_ms(game_board.tempo);
-                end_game = true;
-                break;
+                if(has_backup == 1 && game_board.pacmans[0].alive == 0){
+                    exit(1);
+                }
+                else if(has_backup == 1){
+                    exit(0);
+                }
+                else{
+                    screen_refresh(&game_board, DRAW_GAME_OVER); 
+                    sleep_ms(game_board.tempo);
+                    end_game = true;
+                    break;
+                }
             }
             
             screen_refresh(&game_board, DRAW_MENU); 
