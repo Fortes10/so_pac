@@ -104,9 +104,10 @@ int main(int argc, char** argv) {
     int accumulated_points = 0;
     bool end_game = false;
     board_t game_board;
-
+    
     char level_files[MAX_LEVELS][MAX_FILENAME];
     int n_levels = 0;
+    int has_backup = 0;
     
     struct dirent *entry;
 
@@ -132,36 +133,35 @@ int main(int argc, char** argv) {
         draw_board(&game_board, DRAW_MENU);
         refresh_screen();
         
-        int has_backup = 0;
 
         while(true) {
             int result = play_board(&game_board); 
 
             if(result == CREATE_BACKUP){
                 if(has_backup == 0){
+                    int pid, status;
                     has_backup = 1;
-                    pid_t pid = fork();
 
-                    if(pid == 0){
+                    pid = fork();
+                    if (pid < 0) {
+                        perror("fork");
                         continue;
-                    }
+                    } else if (pid == 0) 
+                        continue;
 
                     else{
-                        int status;
-                        waitpid(pid, &status, 0);
-                        if(WIFEXITED(status)){
-                            int code = WEXITSTATUS(status);
-
-                            if(code == 1){
-                                has_backup = 0;
-                                continue;
-                            }
-                            else if(code == 0){
-                                end_game = true;
-                                break;
-                            }
+                        if(wait(&status) < 0){
+                            perror("wait");
+                            end_game = true;
+                            break;
                         }
-                        else{
+                        int status_code = WEXITSTATUS(status);
+                        if(status_code == 1){
+                            has_backup = 0;
+                            draw_board(&game_board, DRAW_MENU);
+                            refresh_screen();
+                            continue;
+                        } else{
                             end_game = true;
                             break;
                         }
