@@ -651,13 +651,15 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
         int start_y = 1;
 
         int found = 0;
-        if (board->board[get_board_index(board, start_x, start_y)].content != 'W') {
+        if (board->board[get_board_index(board, start_x, start_y)].content == ' ' && 
+                board->board[get_board_index(board, start_x, start_y)].has_dot == 1) {
             found = 1;
         } else {
             //Se a posição (1,1) estiver ocupada, procura a primeira posição livre
             for (int y = 0; y < board->height && !found; y++) {
                 for (int x = 0; x < board->width && !found; x++) {
-                    if (board->board[get_board_index(board, x, y)].content != 'W') {
+                    if (board->board[get_board_index(board, x, y)].content == ' ' && 
+                            board->board[get_board_index(board, x, y)].has_dot == 1) {
                         start_x = x;
                         start_y = y;
                         found = 1;
