@@ -158,8 +158,7 @@ int is_lvl_file(char *filename) {
 int main(int argc, char** argv) {
     if (argc != 2) {
         printf("Usage: %s <level_directory>\n", argv[0]);
-        
-        // TODO receive inputs
+        return EXIT_FAILURE;
     }
     
     DIR * dir = opendir(argv[1]);
@@ -182,10 +181,6 @@ int main(int argc, char** argv) {
     char level_files[MAX_LEVELS][MAX_FILENAME];
     int n_levels = 0;
     int has_backup = 0;
-    pid_t pid = -1; 
-    pid_t backup_parent_pid = -1;
-    int forced_exit = 0;
-    int forced_exit_code = 0;
     
     struct dirent *entry;
 
@@ -214,15 +209,15 @@ int main(int argc, char** argv) {
         }
 
         int level_finished = 0;
-        int level_loaded = 1;
 
         while (!level_finished && !end_game) {
             set_game_state(CONTINUE_PLAY);
 
+            //Criação das threads
             pthread_t ncurses_tid;
             if (pthread_create(&ncurses_tid, NULL, ncurses_thread, (void *)&game_board) != 0) {
                 perror("pthread_create ncurses");
-                end_game = 1;
+                end_game = true;
                 break;
             }
 
@@ -230,7 +225,7 @@ int main(int argc, char** argv) {
             if (pthread_create(&pac_thread, NULL, pacman_thread, (void *)&game_board) != 0) {
                 perror("pthread_create pacman");
                 pthread_join(ncurses_tid, NULL);
-                end_game = 1;
+                end_game = true;
                 break;
             }
 
@@ -241,11 +236,12 @@ int main(int argc, char** argv) {
                 ghost_args[i].game_board  = &game_board;
                 if (pthread_create(&ghost_threads[i], NULL, ghost_thread, (void *)&ghost_args[i]) != 0) {
                     perror("pthread_create ghost");
-                    set_game_state(QUIT_GAME);
+                    end_game = true;
                     break;
                 }
             }
 
+            //Espera pelo fim das threads
             pthread_join(pac_thread, NULL);
             pthread_join(ncurses_tid, NULL);
             for (int i = 0; i < game_board.n_ghosts; i++) {
@@ -255,14 +251,11 @@ int main(int argc, char** argv) {
             int state = get_game_state();
 
             if (state == CREATE_BACKUP) {
-                if (has_backup && backup_parent_pid > 0) {
-                    kill(backup_parent_pid, SIGTERM);
-                    backup_parent_pid = -1;
-                    has_backup = 0;
+                if(has_backup == 1){
+                    set_game_state(CONTINUE_PLAY);
+                    continue;
                 }
-
-                pid_t parent_pid = getpid();
-                pid = fork();
+                pid_t pid = fork();
                 if (pid < 0) {
                     perror("fork");
                     has_backup = 0;
@@ -270,39 +263,26 @@ int main(int argc, char** argv) {
                     continue;
                 } else if (pid == 0) {
                     has_backup = 1;
-                    backup_parent_pid = parent_pid;
                     set_game_state(CONTINUE_PLAY);
                     continue;
                 } else {
                     int status;
                     has_backup = 1;
-                    backup_parent_pid = -1;
-                    if (waitpid(pid, &status, 0) < 0) {
+                    if (wait(&status) < 0) {
                         perror("wait");
-                        forced_exit = 1;
-                        forced_exit_code = EXIT_FAILURE;
-                        end_game = 1;
+                        end_game = true;
                         level_finished = 1;
                         break;
                     }
 
-                    if (WIFEXITED(status) && WEXITSTATUS(status) == 1) {
+                    if (WEXITSTATUS(status) == 1) {
                         has_backup = 0;
-                        backup_parent_pid = -1;
                         set_game_state(CONTINUE_PLAY);
                         continue;
                     }
 
-                    forced_exit = 1;
-                    end_game = 1;
+                    end_game = true;
                     level_finished = 1;
-                    if (WIFEXITED(status)) {
-                        forced_exit_code = WEXITSTATUS(status);
-                    } else if (WIFSIGNALED(status)) {
-                        forced_exit_code = 128 + WTERMSIG(status);
-                    } else {
-                        forced_exit_code = EXIT_FAILURE;
-                    }
                     break;
                 }
             }
@@ -312,8 +292,6 @@ int main(int argc, char** argv) {
                 sleep_ms(game_board.tempo);
                 accumulated_points = game_board.pacmans[0].points;
                 print_board(&game_board);
-                unload_level(&game_board);
-                level_loaded = 0;
                 level_finished = 1;
                 continue;
             }
@@ -326,10 +304,8 @@ int main(int argc, char** argv) {
                 } else {
                     screen_refresh(&game_board, DRAW_GAME_OVER);
                     sleep_ms(game_board.tempo);
-                    end_game = 1;
+                    end_game = true;
                     level_finished = 1;
-                    unload_level(&game_board);
-                    level_loaded = 0;
                     break;
                 }
             }
@@ -339,22 +315,16 @@ int main(int argc, char** argv) {
             print_board(&game_board);
         }
 
-        if (level_loaded) {
-            unload_level(&game_board);
-        }
-
         if (level_finished) {
             lvl_index++;
         }
+        unload_level(&game_board);
+
     }
             
     terminal_cleanup();
 
     close_debug_file();
-
-    if (forced_exit) {
-        return forced_exit_code;
-    }
 
     return 0;
 }

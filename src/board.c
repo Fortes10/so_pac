@@ -100,13 +100,7 @@ int move_pacman(board_t* board, int pacman_index, command_t* command) {
     char target_content = board->board[new_index].content;
 
     if (board->board[new_index].has_portal) {
-        if (board->board[new_index].has_dot) {
-            pac->points++;
-            board->board[new_index].has_dot = 0;
-        }
         board->board[old_index].content = ' ';
-        pac->pos_x = new_x;
-        pac->pos_y = new_y;
         board->board[new_index].content = 'P';
         return REACHED_PORTAL;
     }
@@ -589,6 +583,9 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
     
     board->n_pacmans = 1;
     board->n_ghosts = 0;
+
+    strncpy(board->level_name, filepath, MAX_FILENAME - 1);
+    board->level_name[MAX_FILENAME - 1] = '\0';
     
     board->pacman_file[0] = '\0';
     for (int i = 0; i < MAX_GHOSTS; i++) {
