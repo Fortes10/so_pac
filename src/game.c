@@ -5,12 +5,8 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
-#include <signal.h>
-#include <stdbool.h>
-
 
 #define CONTINUE_PLAY 0
 #define NEXT_LEVEL 1
@@ -18,15 +14,13 @@
 #define LOAD_BACKUP 3
 #define CREATE_BACKUP 4
 
+//Códigos de saída para o backup
+#define PACMAN_DEAD   1
+#define PACMAN_ALIVE  0
+
 int game_state = CONTINUE_PLAY;
-pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t board_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-typedef struct {
-    int ghost_index;
-    board_t * game_board;
-} ghost_arg_t;
-
+pthread_mutex_t state_mutex;
+pthread_mutex_t board_mutex;
 
 static int get_game_state(void) {
     pthread_mutex_lock(&state_mutex);
@@ -49,6 +43,7 @@ void screen_refresh(board_t * game_board, int mode) {
         sleep_ms(game_board->tempo);       
 }
 
+//Movimentos feitos pelo pacman
 int play_pacman(board_t * game_board) {
     pacman_t* pacman = &game_board->pacmans[0];
     command_t* play;
@@ -77,9 +72,7 @@ int play_pacman(board_t * game_board) {
         return QUIT_GAME;
     }
     
-    pthread_mutex_lock(&board_mutex);
     int result = move_pacman(game_board, 0, play);
-    pthread_mutex_unlock(&board_mutex);
 
     if (result == REACHED_PORTAL) {
         return NEXT_LEVEL;
@@ -92,7 +85,7 @@ int play_pacman(board_t * game_board) {
     return CONTINUE_PLAY;
 }
 
-
+//Thread do Pacman
 void *pacman_thread (void *arg){
     board_t * game_board = (board_t *) arg;
     set_game_state(CONTINUE_PLAY);
@@ -103,18 +96,17 @@ void *pacman_thread (void *arg){
             set_game_state(state);
             break;
         }
-        sleep_ms(80); 
+        sleep_ms(100); 
     }
 
     return NULL;
 }
 
+//Movimentos feitos pelos ghosts
 int play_ghosts(board_t *game_board, int ghost_index) {
     ghost_t* ghost = &game_board->ghosts[ghost_index];
     
-    pthread_mutex_lock(&board_mutex);
     move_ghost(game_board, ghost_index, &ghost->moves[ghost->current_move % ghost->n_moves]);
-    pthread_mutex_unlock(&board_mutex);
 
     if (!game_board->pacmans[0].alive) {
         return QUIT_GAME;
@@ -123,6 +115,7 @@ int play_ghosts(board_t *game_board, int ghost_index) {
     return CONTINUE_PLAY;
 }
 
+//Thread de cada ghost
 void *ghost_thread (void *arg){
     ghost_arg_t * ghost_arg = (ghost_arg_t *) arg;
     board_t * game_board = ghost_arg->game_board;
@@ -134,17 +127,18 @@ void *ghost_thread (void *arg){
             set_game_state(state);
             break;
         }
-        sleep_ms(200);
+        sleep_ms(150);
     }
     return NULL;
 }
 
+//Thread do ncurses
 void *ncurses_thread (void *arg){
     while (get_game_state() == CONTINUE_PLAY) {
         pthread_mutex_lock(&board_mutex);
         screen_refresh((board_t *) arg, DRAW_MENU);
         pthread_mutex_unlock(&board_mutex);
-        sleep_ms(100); // Adjust refresh rate as needed
+        sleep_ms(100); 
     }
     return NULL;
 }
@@ -170,6 +164,20 @@ int main(int argc, char** argv) {
     // Random seed for any random movements
     srand((unsigned int)time(NULL));
 
+    //Inicialização dos locks
+    if (pthread_mutex_init(&state_mutex, NULL) != 0) {
+        perror("pthread_mutex_init state_mutex");
+        closedir(dir);
+        return EXIT_FAILURE;
+    }
+
+    if (pthread_mutex_init(&board_mutex, NULL) != 0) {
+        perror("pthread_mutex_init board_mutex");
+        pthread_mutex_destroy(&state_mutex);
+        closedir(dir);
+        return EXIT_FAILURE;
+    }
+
     open_debug_file("debug.log");
 
     terminal_init();
@@ -184,6 +192,7 @@ int main(int argc, char** argv) {
     
     struct dirent *entry;
 
+    //Leitura do diretório
     while ((entry = readdir(dir)) != NULL) {
         if (!is_lvl_file(entry->d_name))
             continue;
@@ -260,12 +269,16 @@ int main(int argc, char** argv) {
                     perror("fork");
                     has_backup = 0;
                     set_game_state(CONTINUE_PLAY);
-                    continue;
-                } else if (pid == 0) {
+                    return EXIT_FAILURE;
+                } 
+                //Processo filho
+                else if (pid == 0) {
                     has_backup = 1;
                     set_game_state(CONTINUE_PLAY);
                     continue;
-                } else {
+                } 
+                //Processo pai
+                else {
                     int status;
                     has_backup = 1;
                     if (wait(&status) < 0) {
@@ -298,9 +311,9 @@ int main(int argc, char** argv) {
 
             if (state == QUIT_GAME) {
                 if (has_backup == 1 && game_board.pacmans[0].alive == 0) {
-                    exit(1);
+                    exit(PACMAN_DEAD);
                 } else if (has_backup == 1) {
-                    exit(0);
+                    exit(PACMAN_ALIVE);
                 } else {
                     screen_refresh(&game_board, DRAW_GAME_OVER);
                     sleep_ms(game_board.tempo);

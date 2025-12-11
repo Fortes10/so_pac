@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <fcntl.h> 
+#include <pthread.h>
 
 FILE * debugfile;
 
@@ -39,6 +40,62 @@ void sleep_ms(int milliseconds) {
     nanosleep(&ts, NULL);
 }
 
+int board_init_locks(board_t *board) {
+    int total = board->width * board->height;
+    board->cell_locks = malloc(total * sizeof(pthread_mutex_t));
+    if (!board->cell_locks) {
+        return -1;
+    }
+
+    for (int i = 0; i < total; i++) {
+        if (pthread_mutex_init(&board->cell_locks[i], NULL) != 0) {
+            for (int j = 0; j < i; j++) {
+                pthread_mutex_destroy(&board->cell_locks[j]);
+            }
+            free(board->cell_locks);
+            board->cell_locks = NULL;
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+void board_destroy_locks(board_t *board) {
+    if (!board->cell_locks) return;
+
+    int total = board->width * board->height;
+    for (int i = 0; i < total; i++) {
+        pthread_mutex_destroy(&board->cell_locks[i]);
+    }
+    free(board->cell_locks);
+    board->cell_locks = NULL;
+}
+
+void lock_two_cells(board_t *board, int x1, int y1, int x2, int y2) {
+    int idx1 = get_board_index(board, x1, y1);
+    int idx2 = get_board_index(board, x2, y2);
+
+    if (idx1 == idx2) {
+        pthread_mutex_lock(&board->cell_locks[idx1]);
+        return;
+    }
+    pthread_mutex_lock(&board->cell_locks[idx1]);
+    pthread_mutex_lock(&board->cell_locks[idx2]);
+}
+
+void unlock_two_cells(board_t *board, int x1, int y1, int x2, int y2) {
+    int idx1 = get_board_index(board, x1, y1);
+    int idx2 = get_board_index(board, x2, y2);
+
+    if (idx1 == idx2) {
+        pthread_mutex_unlock(&board->cell_locks[idx1]);
+        return;
+    }
+    pthread_mutex_unlock(&board->cell_locks[idx1]);
+    pthread_mutex_unlock(&board->cell_locks[idx2]);
+}
+
 int move_pacman(board_t* board, int pacman_index, command_t* command) {
     if (pacman_index < 0 || !board->pacmans[pacman_index].alive) {
         return DEAD_PACMAN; // Invalid or dead pacman
@@ -47,6 +104,8 @@ int move_pacman(board_t* board, int pacman_index, command_t* command) {
     pacman_t* pac = &board->pacmans[pacman_index];
     int new_x = pac->pos_x;
     int new_y = pac->pos_y;
+    int old_x = pac->pos_x;
+    int old_y = pac->pos_y;
 
     // check passo
     if (pac->waiting > 0) {
@@ -96,23 +155,28 @@ int move_pacman(board_t* board, int pacman_index, command_t* command) {
     }
 
     int new_index = get_board_index(board, new_x, new_y);
-    int old_index = get_board_index(board, pac->pos_x, pac->pos_y);
+    int old_index = get_board_index(board, old_x, old_y);
     char target_content = board->board[new_index].content;
+
+    lock_two_cells(board, old_x, old_y, new_x, new_y);
 
     if (board->board[new_index].has_portal) {
         board->board[old_index].content = ' ';
         board->board[new_index].content = 'P';
+        unlock_two_cells(board, old_x, old_y, new_x, new_y);
         return REACHED_PORTAL;
     }
 
     // Check for walls
     if (target_content == 'W') {
+        unlock_two_cells(board, old_x, old_y, new_x, new_y);
         return INVALID_MOVE;
     }
 
     // Check for ghosts
     if (target_content == 'M') {
         kill_pacman(board, pacman_index);
+        unlock_two_cells(board, old_x, old_y, new_x, new_y);
         return DEAD_PACMAN;
     }
 
@@ -126,6 +190,8 @@ int move_pacman(board_t* board, int pacman_index, command_t* command) {
     pac->pos_x = new_x;
     pac->pos_y = new_y;
     board->board[new_index].content = 'P';
+
+    unlock_two_cells(board, old_x, old_y, new_x, new_y);
 
     return VALID_MOVE;
 }
@@ -206,14 +272,14 @@ static int move_ghost_charged_direction(board_t* board, ghost_t* ghost, char dir
             return INVALID_MOVE;
     }
     return VALID_MOVE;
-}   
+}
 
 int move_ghost_charged(board_t* board, int ghost_index, char direction) {
     ghost_t* ghost = &board->ghosts[ghost_index];
-    int x = ghost->pos_x;
-    int y = ghost->pos_y;
-    int new_x = x;
-    int new_y = y;
+    int old_x = ghost->pos_x;
+    int old_y = ghost->pos_y;
+    int new_x = old_x;
+    int new_y = old_y;
 
     ghost->charged = 0; //uncharge
     int result = move_ghost_charged_direction(board, ghost, direction, &new_x, &new_y);
@@ -226,6 +292,8 @@ int move_ghost_charged(board_t* board, int ghost_index, char direction) {
     int old_index = get_board_index(board, ghost->pos_x, ghost->pos_y);
     int new_index = get_board_index(board, new_x, new_y);
 
+    lock_two_cells(board, old_x, old_y, new_x, new_y);
+
     // Update board - clear old position (restore what was there)
     board->board[old_index].content = ' '; // Or restore the dot if ghost was on one
     // Update ghost position
@@ -233,6 +301,9 @@ int move_ghost_charged(board_t* board, int ghost_index, char direction) {
     ghost->pos_y = new_y;
     // Update board - set new position
     board->board[new_index].content = 'M';
+
+    unlock_two_cells(board, old_x, old_y, new_x, new_y);
+
     return result;
 }
 
@@ -240,6 +311,8 @@ int move_ghost(board_t* board, int ghost_index, command_t* command) {
     ghost_t* ghost = &board->ghosts[ghost_index];
     int new_x = ghost->pos_x;
     int new_y = ghost->pos_y;
+    int old_x = ghost->pos_x;
+    int old_y = ghost->pos_y;
 
     // check passo
     if (ghost->waiting > 0) {
@@ -296,11 +369,14 @@ int move_ghost(board_t* board, int ghost_index, command_t* command) {
 
     // Check board position
     int new_index = get_board_index(board, new_x, new_y);
-    int old_index = get_board_index(board, ghost->pos_x, ghost->pos_y);
+    int old_index = get_board_index(board, old_x, old_y);
     char target_content = board->board[new_index].content;
+
+    lock_two_cells(board, old_x, old_y, new_x, new_y);
 
     // Check for walls and ghosts
     if (target_content == 'W' || target_content == 'M') {
+        unlock_two_cells(board, old_x, old_y, new_x, new_y);
         return INVALID_MOVE;
     }
 
@@ -319,6 +395,9 @@ int move_ghost(board_t* board, int ghost_index, command_t* command) {
 
     // Update board - set new position
     board->board[new_index].content = 'M';
+
+    unlock_two_cells(board, old_x, old_y, new_x, new_y);
+
     return result;
 }
 
@@ -595,6 +674,7 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
     board->board = NULL;
     board->pacmans = NULL;
     board->ghosts = NULL;
+    board->cell_locks = NULL;
 
     int fd = open(filepath, O_RDONLY);
     if (fd < 0) {
@@ -690,11 +770,21 @@ int load_level(board_t *board, int points, char *filepath, char *directory) {
     }
     load_ghost(board, board->n_ghosts, board->ghosts_files);
     
+    if (board_init_locks(board) != 0) {
+        free(board->board);
+        free(board->pacmans);
+        free(board->ghosts);
+        board->board = NULL;
+        board->pacmans = NULL;
+        board->ghosts = NULL;
+        return -1;
+    }
 
     return 0;
 }
 
 void unload_level(board_t * board) {
+    board_destroy_locks(board);
     free(board->board);
     free(board->pacmans);
     free(board->ghosts);
