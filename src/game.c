@@ -65,10 +65,10 @@ int play_pacman(board_t * game_board) {
 
     debug("KEY %c\n", play->command);
     
-    if(c.command == 'G'){
+    if(play->command == 'G'){
         return CREATE_BACKUP;
     }
-    
+
     if (play->command == 'Q') {
         return QUIT_GAME;
     }
