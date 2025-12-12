@@ -65,7 +65,9 @@ int play_pacman(board_t * game_board) {
 
     debug("KEY %c\n", play->command);
     
-    if(play->command == 'G'){
+    if (play->command == 'G') {
+        if (pacman->n_moves > 0) 
+            pacman->current_move++;
         return CREATE_BACKUP;
     }
 
