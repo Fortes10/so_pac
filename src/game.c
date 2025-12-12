@@ -55,9 +55,6 @@ int play_pacman(board_t * game_board) {
         
         if(c.command == '\0')
             return CONTINUE_PLAY;
-
-        if(c.command == 'G')
-            return CREATE_BACKUP;
         
         c.turns = 1;
         play = &c;
@@ -67,6 +64,9 @@ int play_pacman(board_t * game_board) {
     }
 
     debug("KEY %c\n", play->command);
+    
+    if(c.command == 'G')
+        return CREATE_BACKUP;
 
     if (play->command == 'Q') {
         return QUIT_GAME;
