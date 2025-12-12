@@ -96,7 +96,7 @@ void *pacman_thread (void *arg){
             set_game_state(state);
             break;
         }
-        sleep_ms(100); 
+        sleep_ms(game_board->tempo); 
     }
 
     return NULL;
@@ -127,18 +127,19 @@ void *ghost_thread (void *arg){
             set_game_state(state);
             break;
         }
-        sleep_ms(150);
+        sleep_ms(game_board->tempo);
     }
     return NULL;
 }
 
 //Thread do ncurses
 void *ncurses_thread (void *arg){
+    board_t *game_board = (board_t *) arg;
     while (get_game_state() == CONTINUE_PLAY) {
         pthread_mutex_lock(&board_mutex);
-        screen_refresh((board_t *) arg, DRAW_MENU);
+        screen_refresh(game_board, DRAW_MENU);
         pthread_mutex_unlock(&board_mutex);
-        sleep_ms(100); 
+        sleep_ms(game_board->tempo); 
     }
     return NULL;
 }
@@ -210,6 +211,7 @@ int main(int argc, char** argv) {
     int lvl_index = 0;
     while (lvl_index < n_levels && !end_game) {
         char filepath[BIG_BUFFER_SIZE];
+        strcpy(game_board.level_name, level_files[lvl_index]);
 
         snprintf(filepath, sizeof(filepath), "%s/%s", argv[1], level_files[lvl_index]);
         if (load_level(&game_board, accumulated_points, filepath, argv[1]) != 0) {
