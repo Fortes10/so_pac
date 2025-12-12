@@ -1,7 +1,7 @@
 # PASSO: comando de espaçamento de movimentos
 # Só existe um no início por ficheiro. Indica quantas jogadas esperar
 # entre cada movimento.
-PASSO 25
+PASSO 35
 # POS: comando de colocação inicial do monstro (linha e coluna).
 # Assume-se que não é possível o monstro ser colocado
 # numa posição impossível/inexistente.
@@ -12,8 +12,3 @@ POS 1 1
 # R (direcção aleatória), T (espera um número de jogadas), C (carregar)
 R
 G
-R
-R
-R
-R
-R

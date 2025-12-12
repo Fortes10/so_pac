@@ -11,4 +11,4 @@ POS 5 1
 # Os comandos possíveis são A (esq.), D (dir.), W (cima.), S (baixo)
 # R (direcção aleatória), T (espera um número de jogadas), C (carregar)
 R
-T 3
+T 2
