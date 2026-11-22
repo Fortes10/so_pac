@@ -5,6 +5,8 @@
 **Pacmanist** é um jogo inspirado no clássico Pacman, desenvolvido como código base do projeto da disciplina de Sistemas Operativos (SO-25/26). 
 O jogo implementa um sistema de agentes (Pacman e monstros) que se movem num tabuleiro, com o objetivo de coletar pontos enquanto evitam os monstros.
 
+**Pacmanist** is a game inspired by the classic Pac-Man. It was developed as starter code for the 2025/26 Operating Systems course project. In the game, Pac-Man and the monsters move around the board as agents. The goal is to collect points while avoiding the monsters.
+
 ## Estrutura do Projeto
 
 ### Ficheiros Principais
