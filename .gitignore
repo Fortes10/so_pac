@@ -1,0 +1,6 @@
+bin/
+obj/
+*.o
+*.log
+.DS_Store
+top5_clients.txt
